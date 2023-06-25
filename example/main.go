@@ -1,19 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"gee"
-	"net/http"
+	"time"
 )
 
+// 测试案例
 func main() {
 	engine := gee.New()
-	engine.GET("/", func(writer http.ResponseWriter, request *http.Request) {
-		_, _ = writer.Write([]byte("welcome my gee!\n"))
+	engine.GET("/", func(c *gee.Context) {
+		c.JSON(200, gee.JSON{
+			"master": "pandaer",
+			"time":   time.Now(),
+		})
 	})
 
-	engine.GET("/info", func(writer http.ResponseWriter, request *http.Request) {
-		_, _ = fmt.Fprintf(writer, "path: %s\n host: %s\n", request.URL.Path, request.Host)
+	engine.GET("/info", func(c *gee.Context) {
+		c.HTML(200, "<h1>暂无信息</h1>\n")
 	})
 
 	engine.Run(":8080")

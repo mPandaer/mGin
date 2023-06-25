@@ -1,10 +1,8 @@
 package gee
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 )
 
 //框架内部核心代码
@@ -17,38 +15,30 @@ const (
 )
 
 // HandlerFunc 定义一个请求处理器
-type HandlerFunc http.HandlerFunc
+
 type ResponseWriter = http.ResponseWriter
 type Request = http.Request
 
 // Engine 作为服务器的入口
 type Engine struct {
-	router map[string]HandlerFunc
+	r *router
+	//context *Context
 }
 
-func genKey(r *Request) string {
-	method := r.Method
-	method = strings.ToUpper(method)
-	return method + ":" + r.URL.Path
-}
+//func getKey(r *Request) string {
+//	method := r.Method
+//	method = strings.ToUpper(method)
+//	return method + ":" + r.URL.Path
+//}
 
 // ServeHTTP(ResponseWriter, *Request)
 func (e *Engine) ServeHTTP(w ResponseWriter, r *Request) {
-	handler, ok := e.router[genKey(r)]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		_, err := w.Write([]byte("404 NOT FOUND\n"))
-		if err != nil {
-			log.Println("err occurs!")
-		}
-		return
-	}
-	handler(w, r)
+	context := newContext(w, r)
+	e.r.handle(context)
 }
 
 func (e *Engine) AddRouter(method string, pattern string, handler HandlerFunc) {
-	key := method + ":" + pattern
-	e.router[key] = handler
+	e.r.addRoute(method, pattern, handler)
 }
 
 func (e *Engine) GET(pattern string, handler HandlerFunc) {
@@ -69,12 +59,6 @@ func (e *Engine) Run(addr string) {
 
 func New() *Engine {
 	return &Engine{
-		router: make(map[string]HandlerFunc),
+		r: newRouter(),
 	}
-}
-
-type T int
-
-func TT(arg T) {
-	fmt.Println(arg)
 }
