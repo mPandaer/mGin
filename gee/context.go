@@ -26,6 +26,7 @@ type Context struct {
 	//请求信息
 	Path   string
 	Method string
+	Params map[string]string
 	//响应信息
 	StatusCode int
 }
@@ -36,13 +37,19 @@ func newContext(w ResponseWriter, r *Request) *Context {
 		Writer: w,
 		Path:   r.URL.Path,
 		Method: r.Method,
+		Params: make(map[string]string),
 	}
 }
 
 //获取请求信息的简单方法
 
+func (c *Context) Param(key string) string {
+	value, _ := c.Params[key]
+	return value
+}
+
 func (c *Context) PostForm(key string) string {
-	return c.Req.PostFormValue(key) //todo(不太一样)
+	return c.Req.PostFormValue(key)
 }
 
 func (c *Context) Query(key string) string {
@@ -64,7 +71,6 @@ type JSON map[string]interface{} //JSON类型表达
 
 func (c *Context) JSON(code int, data JSON) {
 	c.Status(code)
-	//c.Writer.Header().Set(CONTENT_TYPE, JSON_TYPE)
 	c.Header(ContentType, JsonType)
 	encoder := json.NewEncoder(c.Writer)
 	if err := encoder.Encode(data); err != nil {
@@ -74,7 +80,6 @@ func (c *Context) JSON(code int, data JSON) {
 }
 
 func (c *Context) HTML(code int, data string) {
-	//c.Writer.Header().Set(CONTENT_TYPE, HTML_TYPE)
 	c.Header(ContentType, HtmlType)
 	c.Status(code)
 	_, _ = c.Writer.Write([]byte(data))
@@ -82,9 +87,8 @@ func (c *Context) HTML(code int, data string) {
 
 func (c *Context) String(code int, format string, values ...interface{}) {
 	c.Status(code)
-	//c.Writer.Header().Set(CONTENT_TYPE, TEXT_TYPE)
 	c.Header(ContentType, TextType)
-	_, _ = fmt.Fprintf(c.Writer, format, values)
+	_, _ = fmt.Fprintf(c.Writer, format, values...)
 
 }
 

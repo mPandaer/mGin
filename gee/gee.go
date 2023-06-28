@@ -25,12 +25,6 @@ type Engine struct {
 	//context *Context
 }
 
-//func getKey(r *Request) string {
-//	method := r.Method
-//	method = strings.ToUpper(method)
-//	return method + ":" + r.URL.Path
-//}
-
 // ServeHTTP(ResponseWriter, *Request)
 func (e *Engine) ServeHTTP(w ResponseWriter, r *Request) {
 	context := newContext(w, r)
