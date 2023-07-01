@@ -79,11 +79,17 @@ func (r *router) getRouter(method string, pattern string) (*node, map[string]str
 
 func (r *router) handle(c *Context) {
 	n, params := r.getRouter(c.Method, c.Path)
+	var handler HandlerFunc
 	if n == nil {
-		_, _ = c.Writer.Write([]byte("404 NOT FOUND\n"))
-		return
+		handler = func(c *Context) {
+			c.Status(404)
+			_, _ = c.Writer.Write([]byte("404 NOT FOUND\n"))
+		}
+	} else {
+		c.Params = params
+		key := c.Method + ":" + n.pattern
+		handler = r.handlers[key] //业务逻辑Handler
 	}
-	c.Params = params
-	key := c.Method + ":" + n.pattern
-	r.handlers[key](c)
+	c.handlers = append(c.handlers, handler)
+	c.Next()
 }

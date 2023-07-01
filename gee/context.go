@@ -15,7 +15,7 @@ const (
 
 const (
 	JsonType = "application/json"
-	HtmlType = "text/html"
+	HtmlType = "text/html;charset=utf-8"
 	TextType = "text/plain"
 )
 
@@ -29,6 +29,9 @@ type Context struct {
 	Params map[string]string
 	//响应信息
 	StatusCode int
+	//中间件
+	handlers []HandlerFunc
+	index    int
 }
 
 func newContext(w ResponseWriter, r *Request) *Context {
@@ -38,6 +41,15 @@ func newContext(w ResponseWriter, r *Request) *Context {
 		Path:   r.URL.Path,
 		Method: r.Method,
 		Params: make(map[string]string),
+		index:  -1,
+	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	s := len(c.handlers)
+	for ; c.index < s; c.index++ {
+		c.handlers[c.index](c)
 	}
 }
 
@@ -89,7 +101,11 @@ func (c *Context) String(code int, format string, values ...interface{}) {
 	c.Status(code)
 	c.Header(ContentType, TextType)
 	_, _ = fmt.Fprintf(c.Writer, format, values...)
+}
 
+func (c *Context) Fail(code int, errMsg string) {
+	c.index = len(c.handlers)
+	c.String(code, errMsg)
 }
 
 func (c *Context) Data(code int, data []byte) {
