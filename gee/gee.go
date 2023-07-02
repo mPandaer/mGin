@@ -1,8 +1,10 @@
 package gee
 
 import (
+	"html/template"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -25,8 +27,10 @@ type (
 // Engine 作为服务器的入口 并且作为RouterGroup的顶层分组,换句话说Engine自己也是一个RouterGroup
 type Engine struct {
 	*RouterGroup
-	r      *router
-	groups []*RouterGroup //保存所有的路由分组
+	r             *router
+	groups        []*RouterGroup //保存所有的路由分组
+	htmlTemplates *template.Template
+	funcMap       template.FuncMap
 }
 
 //增加分组逻辑 目的给一类URL进行相同的操作
@@ -76,6 +80,29 @@ func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	group.addRoute(POST, pattern, handler)
 }
 
+// Create static handler
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(group.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		//处理静态文件
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+//添加可以提供静态文件服务的注册路由方法
+
+func (group *RouterGroup) Static(relativePath string, root string) {
+	handler := group.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	group.GET(urlPattern, handler)
+}
+
 // ServeHTTP(ResponseWriter, *Request)
 func (e *Engine) ServeHTTP(w ResponseWriter, r *Request) {
 	var middlewares []HandlerFunc
@@ -86,6 +113,7 @@ func (e *Engine) ServeHTTP(w ResponseWriter, r *Request) {
 	}
 	context := newContext(w, r)
 	context.handlers = middlewares
+	context.engine = e
 	e.r.handle(context)
 }
 
@@ -99,6 +127,14 @@ func (e *Engine) GET(pattern string, handler HandlerFunc) {
 
 func (e *Engine) POST(pattern string, handler HandlerFunc) {
 	e.AddRouter(POST, pattern, handler)
+}
+
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+	e.funcMap = funcMap
+}
+
+func (e *Engine) LoadHTMLGlob(pattern string) {
+	e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 
 func (e *Engine) Run(addr string) {

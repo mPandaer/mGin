@@ -1,60 +1,56 @@
 package main
 
 import (
+	"fmt"
 	"gee"
-	"log"
+	"html/template"
 	"time"
 )
 
-//自定义中间件
+type student struct {
+	Name string
+	Age  int8
+}
 
-func OnlyForApi() gee.HandlerFunc {
-	return func(c *gee.Context) {
-		t := time.Now()
-		c.Fail(500, "Internal Server Error\n")
-		log.Printf("[%d] %s in %v for api group\n", c.StatusCode, c.Req.RequestURI, time.Since(t))
-	}
+func FormatAsData(t time.Time) string {
+	year, month, day := t.Date()
+	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
 }
 
 // 测试案例
 func main() {
 	engine := gee.New()
-	engine.Use(gee.Logger())
+	engine.Use(gee.Recovery(), gee.Logger())
+	engine.SetFuncMap(template.FuncMap{
+		"FormatAsDate": FormatAsData,
+	})
+	engine.LoadHTMLGlob("templates/*")
+
+	engine.Static("/assets", "./static")
+
 	engine.GET("/", func(c *gee.Context) {
-		c.HTML(200, "<h1>hello,gee</h1>\n")
+		c.HTML(200, "index.html", nil)
 	})
 
-	apiGroup := engine.Group("/api")
-	apiGroup.Use(OnlyForApi())
+	engine.GET("/panic", func(c *gee.Context) {
+		panic("测试错误处理")
+	})
 
-	{
-		apiGroup.GET("/user", func(c *gee.Context) {
-			c.JSON(200, gee.JSON{
-				"name":   "pandaer",
-				"age":    19,
-				"height": 1.78,
-			})
+	stu1 := &student{Name: "pandaer", Age: 19}
+	stu2 := &student{Name: "bobo", Age: 20}
+	engine.GET("/stu", func(c *gee.Context) {
+		c.HTML(200, "info.html", gee.JSON{
+			"title":  "Gin模板渲染",
+			"stuArr": [2]*student{stu1, stu2},
 		})
+	})
 
-		apiGroup.GET("/dream", func(c *gee.Context) {
-			c.JSON(200, gee.JSON{
-				"dream1": "doctor",
-				"dream2": "技术大佬",
-			})
+	engine.GET("/date", func(c *gee.Context) {
+		c.HTML(200, "date.html", gee.JSON{
+			"title": "模板渲染",
+			"now":   time.Now(),
 		})
-	}
-
-	pageGroup := engine.Group("/static")
-
-	{
-		pageGroup.GET("/good", func(c *gee.Context) {
-			c.HTML(200, "<h1>Good Mood!</h1>")
-		})
-
-		pageGroup.GET("/baidu", func(c *gee.Context) {
-			c.HTML(200, "<a href='http://www.baidu.com'>点击访问百度</a>")
-		})
-	}
+	})
 
 	engine.Run(":8080")
 }

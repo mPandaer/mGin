@@ -32,6 +32,8 @@ type Context struct {
 	//中间件
 	handlers []HandlerFunc
 	index    int
+
+	engine *Engine
 }
 
 func newContext(w ResponseWriter, r *Request) *Context {
@@ -91,10 +93,13 @@ func (c *Context) JSON(code int, data JSON) {
 
 }
 
-func (c *Context) HTML(code int, data string) {
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.Header(ContentType, HtmlType)
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err.Error())
+		return
+	}
 	c.Status(code)
-	_, _ = c.Writer.Write([]byte(data))
 }
 
 func (c *Context) String(code int, format string, values ...interface{}) {
